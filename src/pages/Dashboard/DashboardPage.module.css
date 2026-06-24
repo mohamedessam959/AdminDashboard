@@ -1,0 +1,34 @@
+.adminAlerts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 768px) {
+  .adminAlerts { grid-template-columns: 1fr; }
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 768px) {
+  .twoCol { grid-template-columns: 1fr; }
+}
+.attRow    { margin-bottom: 14px; }
+.attMeta   { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+.activityItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 1.25rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+.activityItem:last-child { border-bottom: none; }

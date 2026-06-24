@@ -1,0 +1,46 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-50);
+  padding: 1rem;
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-md);
+}
+.logoRow  { display: flex; align-items: center; gap: 12px; margin-bottom: 2rem; }
+.logoIcon { width: 42px; height: 42px; background: var(--primary); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+.logoTitle { font-size: 18px; font-weight: 700; }
+.logoSub   { font-size: 11px; color: var(--gray-400); }
+
+.roleLabel { font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; }
+.roleChips { display: flex; gap: 8px; margin-bottom: 1.25rem; }
+.chip {
+  flex: 1;
+  padding: 9px 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--gray-50);
+  color: var(--gray-600);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all .15s;
+  font-family: inherit;
+}
+.chip:hover { background: var(--gray-100); }
+.chipActive { border: 2px solid var(--primary); background: var(--primary-light); color: var(--primary); }
+
+.error { color: var(--danger); font-size: 12px; margin-bottom: .75rem; }
+.hint  { text-align: center; font-size: 11px; color: var(--gray-400); margin-top: .875rem; }
