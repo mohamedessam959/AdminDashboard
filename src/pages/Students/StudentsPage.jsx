@@ -8,7 +8,7 @@ import { en } from '../../locale/en'
 import { useToastStore } from '../../store/toastStore'
 
 const DEPTS = ['Computer Science', 'Information Systems']
-const EMPTY = { name: '', email: '', phone: '', department: 'Computer Science', status: 'active', gpa: '', studyYear: '1' }
+const EMPTY = { name: '', email: '', phone: '', department: 'Computer Science', status: 'active', gpa: '', studyYear: '1', courses: [] }
 
 function studentAttendanceInSubject(records, studentId, subjectCode) {
   const rows = records.filter((r) => r.subject === subjectCode && r.studentId === studentId)
@@ -70,14 +70,28 @@ export default function StudentsPage() {
 
   const openAdd = () => { setForm(EMPTY); setEditing(null); setErrors({}); setModal(true) }
   const openEdit = (s) => {
-    setForm({ name: s.name, email: s.email, phone: s.phone || '', department: s.department, status: s.status, gpa: s.gpa ?? '', studyYear: s.studyYear || '1' })
+    setForm({
+      name: s.name,
+      email: s.email,
+      phone: s.phone || '',
+      department: s.department,
+      status: s.status,
+      gpa: s.gpa ?? '',
+      studyYear: s.studyYear || '1',
+      courses: s.courses ? s.courses.map((c) => ({ ...c })) : [],
+    })
     setEditing(s.id); setErrors({}); setModal(true)
   }
 
   const handleSave = () => {
     const errs = validate(form)
     if (Object.keys(errs).length) { setErrors(errs); return }
-    const payload = { ...form, gpa: form.gpa === '' ? 0 : Number(form.gpa), studyYear: String(form.studyYear || '1') }
+    const payload = {
+      ...form,
+      gpa: form.gpa === '' ? 0 : Number(form.gpa),
+      studyYear: String(form.studyYear || '1'),
+      courses: form.courses || [],
+    }
     if (editing) updateStudent(editing, payload)
     else addStudent(payload)
     showToast(en.toast.saved, 'success')
@@ -184,6 +198,51 @@ export default function StudentsPage() {
             <option value="inactive">{en.common.inactive}</option>
           </select>
         </div>
+        <div style={{ marginTop: 16, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Courses</h4>
+          <button type="button" className="btn-outline-uni" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => setForm({ ...form, courses: [...(form.courses || []), { name: '', code: '', credits: '' }] })}>
+            Add Course
+          </button>
+        </div>
+        {(form.courses || []).length === 0 ? (
+          <p style={{ color: 'var(--gray-400)', fontSize: 13, marginTop: 0 }}>No courses assigned yet.</p>
+        ) : (
+          (form.courses || []).map((course, index) => (
+            <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, marginBottom: 10, alignItems: 'flex-end' }}>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label>Course Name</label>
+                <input className="uni-input" type="text" value={course.name} onChange={(e) => {
+                  const updated = [...form.courses]
+                  updated[index] = { ...updated[index], name: e.target.value }
+                  setForm({ ...form, courses: updated })
+                }} />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label>Course Code</label>
+                <input className="uni-input" type="text" value={course.code} onChange={(e) => {
+                  const updated = [...form.courses]
+                  updated[index] = { ...updated[index], code: e.target.value }
+                  setForm({ ...form, courses: updated })
+                }} />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label>Credit Hours</label>
+                <input className="uni-input" type="text" value={course.credits} onChange={(e) => {
+                  const updated = [...form.courses]
+                  updated[index] = { ...updated[index], credits: e.target.value }
+                  setForm({ ...form, courses: updated })
+                }} />
+              </div>
+              <button type="button" className="btn-outline-uni" style={{ height: 36, alignSelf: 'flex-end' }} onClick={() => {
+                const updated = [...form.courses]
+                updated.splice(index, 1)
+                setForm({ ...form, courses: updated })
+              }}>
+                Delete
+              </button>
+            </div>
+          ))
+        )}
       </Modal>
 
       {/* ── Student Profile Modal ── */}

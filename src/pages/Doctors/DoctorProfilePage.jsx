@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import Modal from '../../components/common/Modal'
 import { useDataStore } from '../../store/dataStore'
 import { useAttendanceStore } from '../../store/attendanceStore'
 import { useToastStore } from '../../store/toastStore'
-import { MdArrowBack, MdMenuBook, MdEmail, MdPhone, MdAccessTime, MdSchool, MdBadge, MdClose } from 'react-icons/md'
+import { MdArrowBack, MdMenuBook, MdEmail, MdPhone, MdAccessTime, MdSchool, MdBadge, MdClose, MdEdit } from 'react-icons/md'
 import { en } from '../../locale/en'
 
 function attendancePct(records) {
@@ -18,24 +19,90 @@ function subjectAttendancePct(records, code) {
 
 export default function DoctorProfilePage() {
   const { id } = useParams()
-  const { doctors, subjects, subjectEnrollments, updateSubject } = useDataStore()
-  const { records } = useAttendanceStore()
+  const { doctors, subjects, subjectEnrollments, addSubject, updateSubject } = useDataStore()
+  const { records, renameSubject } = useAttendanceStore()
   const showToast = useToastStore((s) => s.show)
 
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo]     = useState('')
+  const [addCourseModal, setAddCourseModal] = useState(false)
+  const [editingCourse, setEditingCourse] = useState(null)
+  const [newCourseForm, setNewCourseForm] = useState({ name: '', code: '', credits: '', enrolled: '', attendancePct: '' })
+
+  const resetCourseForm = () => setNewCourseForm({ name: '', code: '', credits: '', enrolled: '', attendancePct: '' })
 
   const doctor = doctors.find((d) => d.id === id)
+
+  const openAddCourseModal = () => {
+    resetCourseForm()
+    setEditingCourse(null)
+    setAddCourseModal(true)
+  }
+
+  const openEditCourseModal = (course) => {
+    setEditingCourse(course)
+    setNewCourseForm({
+      name: course.name || '',
+      code: course.code || '',
+      credits: course.credits != null ? String(course.credits) : '',
+      enrolled: course.enrolledCount != null ? String(course.enrolledCount) : String((subjectEnrollments[course.code] || []).length),
+      attendancePct: course.attendancePct != null ? String(course.attendancePct) : '',
+    })
+    setAddCourseModal(true)
+  }
 
   const mySubjects = useMemo(() =>
     doctor ? subjects.filter((s) => s.doctor === doctor.name) : [],
     [doctor, subjects]
   )
 
-  const unassignedSubjects = useMemo(() =>
-    subjects.filter((s) => s.doctor !== doctor?.name),
-    [subjects, doctor]
-  )
+  const handleSaveCourse = () => {
+    if (!doctor) return
+
+    const name = newCourseForm.name.trim()
+    const code = newCourseForm.code.trim()
+    const credits = newCourseForm.credits.trim()
+    const enrolled = newCourseForm.enrolled.trim()
+    const attendancePct = newCourseForm.attendancePct.trim()
+
+    if (!name || !code) {
+      showToast('Course Name and Code are required.', 'error')
+      return
+    }
+
+    const existingCode = subjects.find((s) => s.code.toLowerCase() === code.toLowerCase() && s.code !== editingCourse?.code)
+    if (existingCode) {
+      showToast('Course code already exists.', 'error')
+      return
+    }
+
+    const courseData = {
+      code,
+      name,
+      doctor: doctor.name,
+      department: doctor.department,
+      credits: Number(credits) || 0,
+      enrolledCount: Number(enrolled) || 0,
+    }
+
+    if (attendancePct !== '') {
+      courseData.attendancePct = Number(attendancePct)
+    }
+
+    if (editingCourse) {
+      updateSubject(editingCourse.code, courseData)
+      if (editingCourse.code !== code) {
+        renameSubject(editingCourse.code, code)
+      }
+    } else {
+      addSubject(courseData)
+    }
+
+    resetCourseForm()
+    setEditingCourse(null)
+    setAddCourseModal(false)
+    showToast(en.toast.saved, 'success')
+  }
 
   const filteredRecords = useMemo(() => {
     const codes = new Set(mySubjects.map((s) => s.code))
@@ -149,23 +216,41 @@ export default function DoctorProfilePage() {
           <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>{mySubjects.length} {en.doctorProfile.catalogueCount}</span>
         </div>
         <div className="uni-card-body">
-          {/* Assign subject */}
-          {unassignedSubjects.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
-              <div className="form-field" style={{ marginBottom: 0, flex: '1 1 220px' }}>
-                <label>{en.doctorProfile.assignSubject}</label>
-                <select className="uni-select" value="" onChange={(e) => {
-                  const code = e.target.value
-                  if (!code) return
-                  const sub = subjects.find((s) => s.code === code)
-                  if (sub) { updateSubject(code, { ...sub, doctor: doctor.name }); showToast(en.toast.saved, 'success') }
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <button type="button" className="btn-primary-uni" onClick={openAddCourseModal}>
+              {en.subjects.add}
+            </button>
+          </div>
+
+          <Modal
+            isOpen={addCourseModal}
+            onClose={() => {
+              resetCourseForm()
+              setEditingCourse(null)
+              setAddCourseModal(false)
+            }}
+            title={editingCourse ? 'Edit Course' : en.subjects.add}
+            footer={(
+              <>
+                <button className="btn-outline-uni" onClick={() => {
+                  resetCourseForm()
+                  setEditingCourse(null)
+                  setAddCourseModal(false)
                 }}>
-                  <option value="">{en.doctorProfile.chooseSubject}</option>
-                  {unassignedSubjects.map((s) => <option key={s.code} value={s.code}>{s.code} – {s.name}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
+                  {en.common.cancel}
+                </button>
+                <button className="btn-primary-uni" onClick={handleSaveCourse}>
+                  {en.common.save}
+                </button>
+              </>
+            )}
+          >
+            <div className="form-field"><label>Course Name</label><input className="uni-input" type="text" value={newCourseForm.name} onChange={(e) => setNewCourseForm({ ...newCourseForm, name: e.target.value })} /></div>
+            <div className="form-field"><label>Course Code</label><input className="uni-input" type="text" value={newCourseForm.code} onChange={(e) => setNewCourseForm({ ...newCourseForm, code: e.target.value })} /></div>
+            <div className="form-field"><label>Credit Hours</label><input className="uni-input" type="text" value={newCourseForm.credits} onChange={(e) => setNewCourseForm({ ...newCourseForm, credits: e.target.value })} /></div>
+            <div className="form-field"><label>Number of Enrolled Students</label><input className="uni-input" type="text" value={newCourseForm.enrolled} onChange={(e) => setNewCourseForm({ ...newCourseForm, enrolled: e.target.value })} /></div>
+            <div className="form-field"><label>Attendance Rate (%)</label><input className="uni-input" type="text" value={newCourseForm.attendancePct} onChange={(e) => setNewCourseForm({ ...newCourseForm, attendancePct: e.target.value })} /></div>
+          </Modal>
 
           <table className="uni-table">
             <thead>
@@ -176,18 +261,21 @@ export default function DoctorProfilePage() {
                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--gray-400)' }}>{en.doctorProfile.noSubjects}</td></tr>
               )}
               {mySubjects.map((s) => {
-                const pct = subjectAttendancePct(filteredRecords, s.code)
-                const enrolled = (subjectEnrollments[s.code] || []).length
+                const pctValue = s.attendancePct != null ? s.attendancePct : subjectAttendancePct(filteredRecords, s.code)
+                const enrolled = s.enrolledCount != null ? s.enrolledCount : (subjectEnrollments[s.code] || []).length
                 return (
                   <tr key={s.code}>
                     <td style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 12 }}>{s.code}</td>
                     <td><strong style={{ fontWeight: 600 }}>{s.name}</strong></td>
                     <td>{enrolled}</td>
                     <td>
-                      {pct == null ? <span style={{ color: 'var(--gray-400)' }}>{en.doctorProfile.noData}</span>
-                        : <span style={{ fontWeight: 600, color: pct >= 80 ? 'var(--success)' : pct >= 65 ? 'var(--warning)' : 'var(--danger)' }}>{pct}%</span>}
+                      {pctValue == null ? <span style={{ color: 'var(--gray-400)' }}>{en.doctorProfile.noData}</span>
+                        : <span style={{ fontWeight: 600, color: pctValue >= 80 ? 'var(--success)' : pctValue >= 65 ? 'var(--warning)' : 'var(--danger)' }}>{pctValue}%</span>}
                     </td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button type="button" className="btn-outline-uni" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => openEditCourseModal(s)}>
+                        <MdEdit size={13} /> Edit
+                      </button>
                       <button type="button" className="btn-outline-uni" style={{ fontSize: 11, padding: '4px 10px' }}
                         onClick={() => {
                           updateSubject(s.code, { ...s, doctor: '' })

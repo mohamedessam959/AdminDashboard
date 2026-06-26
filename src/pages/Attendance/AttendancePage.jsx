@@ -20,8 +20,16 @@ export default function AttendancePage() {
   const [search, setSearch] = useState('')
 
   const rosterStudents = useMemo(() => {
-    const ids = subjectEnrollments[subject] || []
-    return students.filter((s) => ids.includes(s.id))
+    const code = subject?.toLowerCase?.() || ''
+    const enrolledIds = subjectEnrollments[subject] || []
+
+    return students.filter((s) => {
+      const manuallyAssigned = (s.courses || []).some((c) =>
+        String(c.code || '').toLowerCase() === code ||
+        String(c.name || '').toLowerCase() === code
+      )
+      return enrolledIds.includes(s.id) || manuallyAssigned
+    })
   }, [students, subject, subjectEnrollments])
 
   useEffect(() => {
@@ -46,8 +54,8 @@ export default function AttendancePage() {
     }).catch(() => setAllStudents(students))
   }, [manModal, students])
 
-  const enrolledIds = subjectEnrollments[subject] || []
-  const filtered = getFiltered(subject, date).filter((r) => enrolledIds.includes(r.studentId))
+  const rosterStudentIds = useMemo(() => rosterStudents.map((s) => s.id), [rosterStudents])
+  const filtered = getFiltered(subject, date).filter((r) => rosterStudentIds.includes(r.studentId))
 
   const present = filtered.filter((r) => r.status === 'present').length
   const absent  = filtered.filter((r) => r.status === 'absent').length
@@ -67,10 +75,10 @@ export default function AttendancePage() {
       if (!q) return true
       return s.name.toLowerCase().includes(q) || String(s.id).toLowerCase().includes(q)
     })
-    // put enrolled students first
-    list.sort((a, b) => (enrolledIds.includes(a.id) === enrolledIds.includes(b.id) ? 0 : enrolledIds.includes(a.id) ? -1 : 1))
+    // put roster students first
+    list.sort((a, b) => (rosterStudentIds.includes(a.id) === rosterStudentIds.includes(b.id) ? 0 : rosterStudentIds.includes(a.id) ? -1 : 1))
     return list
-  }, [allStudents, search, enrolledIds])
+  }, [allStudents, search, rosterStudentIds])
 
   useEffect(() => {
     if (!manModal) return

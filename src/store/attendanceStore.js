@@ -50,6 +50,14 @@ export const useAttendanceStore = create(
         })
       },
 
+      renameSubject: (oldCode, newCode) =>
+        set((s) => ({
+          records: s.records.map((r) =>
+            r.subject === oldCode ? { ...r, subject: newCode } : r
+          ),
+        }))
+      ,
+
       initSession: (students, subject, date) => {
         const existing = get().records.filter((r) => r.subject === subject && r.date === date)
         if (existing.length > 0) return
