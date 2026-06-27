@@ -13,24 +13,46 @@ export default function AttendancePage() {
   const { subjects, students, subjectEnrollments } = useDataStore()
 
   const [subject, setSubject] = useState(subjects[0]?.code || '')
+  const [manualSubject, setManualSubject] = useState('')
   const [date, setDate]       = useState(TODAY)
   const [manModal, setManModal] = useState(false)
   const [manForm, setManForm]   = useState({ studentId: '', status: 'present', reason: '' })
   const [allStudents, setAllStudents] = useState(students)
   const [search, setSearch] = useState('')
 
-  const rosterStudents = useMemo(() => {
-    const code = subject?.toLowerCase?.() || ''
-    const enrolledIds = subjectEnrollments[subject] || []
+  const activeSubject = useMemo(() => {
+    const manualValue = String(manualSubject || '').trim().toLowerCase()
+    if (!manualValue) return subject
 
-    return students.filter((s) => {
-      const manuallyAssigned = (s.courses || []).some((c) =>
-        String(c.code || '').toLowerCase() === code ||
-        String(c.name || '').toLowerCase() === code
-      )
-      return enrolledIds.includes(s.id) || manuallyAssigned
-    })
-  }, [students, subject, subjectEnrollments])
+    const matched = subjects.find((s) =>
+      s.code.toLowerCase() === manualValue || s.name.toLowerCase() === manualValue
+    )
+    if (matched) return matched.code
+
+    const manualCourse = students
+      .flatMap((s) => s.courses || [])
+      .find((c) => {
+        const code = String(c.code || '').toLowerCase()
+        const name = String(c.name || '').toLowerCase()
+        return code === manualValue || name === manualValue
+      })
+
+    return manualCourse?.code || manualSubject.trim()
+  }, [manualSubject, subject, students, subjects])
+
+  const rosterStudents = useMemo(() => {
+    const manualValue = String(manualSubject || '').trim().toLowerCase()
+    if (manualValue) {
+      return students.filter((s) => (s.courses || []).some((c) => {
+        const code = String(c.code || '').toLowerCase()
+        const name = String(c.name || '').toLowerCase()
+        return code === manualValue || name === manualValue || code === String(activeSubject).toLowerCase()
+      }))
+    }
+
+    const enrolledIds = subjectEnrollments[subject] || []
+    return students.filter((s) => enrolledIds.includes(s.id))
+  }, [students, subject, subjectEnrollments, manualSubject, activeSubject])
 
   useEffect(() => {
     if (!subjects.length) return
@@ -38,9 +60,9 @@ export default function AttendancePage() {
   }, [subjects, subject])
 
   useEffect(() => {
-    if (!subject || !date || !rosterStudents.length) return
-    initSession(rosterStudents, subject, date)
-  }, [subject, date, rosterStudents, initSession])
+    if (!activeSubject || !date || !rosterStudents.length) return
+    initSession(rosterStudents, activeSubject, date)
+  }, [activeSubject, date, rosterStudents, initSession])
 
   useEffect(() => {
     setManForm((f) => ({ ...f, studentId: rosterStudents[0]?.id || '' }))
@@ -55,7 +77,7 @@ export default function AttendancePage() {
   }, [manModal, students])
 
   const rosterStudentIds = useMemo(() => rosterStudents.map((s) => s.id), [rosterStudents])
-  const filtered = getFiltered(subject, date).filter((r) => rosterStudentIds.includes(r.studentId))
+  const filtered = getFiltered(activeSubject, date).filter((r) => rosterStudentIds.includes(r.studentId))
 
   const present = filtered.filter((r) => r.status === 'present').length
   const absent  = filtered.filter((r) => r.status === 'absent').length
@@ -64,8 +86,8 @@ export default function AttendancePage() {
 
   const handleManualSave = () => {
     const st = students.find((s) => s.id === manForm.studentId)
-    if (!st) return
-    markAttendance(manForm.studentId, subject, date, manForm.status, 'manual', st.name)
+    if (!st || !activeSubject) return
+    markAttendance(manForm.studentId, activeSubject, date, manForm.status, 'manual', st.name)
     setManModal(false)
   }
 
@@ -89,8 +111,21 @@ export default function AttendancePage() {
   const handleToggle = (studentId, currentStatus) => {
     const st = students.find((s) => s.id === studentId)
     const next = currentStatus === 'present' ? 'absent' : 'present'
-    markAttendance(studentId, subject, date, next, 'manual', st?.name)
+    markAttendance(studentId, activeSubject, date, next, 'manual', st?.name)
   }
+
+  const studentCourses = useMemo(() => {
+    const coursesSet = new Map()
+    students.forEach((s) => {
+      (s.courses || []).forEach((c) => {
+        const key = `${String(c.code || '').toLowerCase()}`
+        if (!coursesSet.has(key)) {
+          coursesSet.set(key, { code: c.code, name: c.name })
+        }
+      })
+    })
+    return Array.from(coursesSet.values()).sort((a, b) => String(a.code).localeCompare(String(b.code)))
+  }, [students])
 
   return (
     <div>
@@ -113,12 +148,17 @@ export default function AttendancePage() {
             <p style={{ color: 'var(--gray-400)', padding: '1rem 0' }}>{en.attendance.noRosterAdmin}</p>
           )}
           <div style={{ display: 'flex', gap: 10, marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <select className="uni-select" value={subject} onChange={(e) => setSubject(e.target.value)}>
-              {subjects.map((s) => <option key={s.code} value={s.code}>{s.code} – {s.name}</option>)}
-            </select>
+            <input className="uni-input" placeholder="Enter subject code or name" value={manualSubject} onChange={(e) => setManualSubject(e.target.value)} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <small style={{ fontSize: 11, color: 'var(--gray-500)' }}>Student Courses</small>
+              <select className="uni-select" value={subject} onChange={(e) => setSubject(e.target.value)}>
+                <option value="">-- Select --</option>
+                {studentCourses.map((c) => <option key={c.code} value={c.code}>{c.code} – {c.name || 'No Name'}</option>)}
+              </select>
+            </div>
             <input className="uni-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             <div style={{ marginLeft: 'auto' }}>
-              <button className="btn-primary-uni" disabled={!rosterStudents.length} onClick={() => setManModal(true)}>
+              <button className="btn-primary-uni" onClick={() => setManModal(true)}>
                 <MdEditNote size={16} /> {en.attendance.markManual}
               </button>
             </div>

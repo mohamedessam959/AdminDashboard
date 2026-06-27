@@ -2,29 +2,45 @@ import { useState } from 'react'
 import { useDataStore } from '../../store/dataStore'
 import Modal from '../../components/common/Modal'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
-import { MdAdd, MdDelete, MdMenuBook, MdSchool } from 'react-icons/md'
+import { MdAdd, MdDelete, MdEdit, MdMenuBook, MdSchool } from 'react-icons/md'
 import { en } from '../../locale/en'
 
 const DEPTS = ['Computer Science', 'Mathematics', 'Physics', 'Engineering']
 
 export default function SubjectsPage() {
-  const { subjects, doctors, addSubject, deleteSubject } = useDataStore()
+  const { subjects, doctors, addSubject, updateSubject, deleteSubject } = useDataStore()
   const defaultDoctor = doctors[0]?.name || ''
 
   const [modal, setModal] = useState(false)
+  const [editingCode, setEditingCode] = useState(null)
   const [confirm, setConfirm] = useState(null)
   const [form, setForm] = useState({ code: '', name: '', doctor: defaultDoctor, department: 'Computer Science', credits: 3 })
 
   const doctorNames = doctors.map((d) => d.name)
 
   const handleOpenModal = () => {
+    setEditingCode(null)
     setForm({ code: '', name: '', doctor: doctors[0]?.name || '', department: 'Computer Science', credits: 3 })
+    setModal(true)
+  }
+
+  const handleEdit = (subject) => {
+    setEditingCode(subject.code)
+    setForm({
+      code: subject.code,
+      name: subject.name,
+      doctor: subject.doctor,
+      department: subject.department,
+      credits: subject.credits,
+    })
     setModal(true)
   }
 
   const handleSave = () => {
     if (!form.name || !form.code) return
-    addSubject({ ...form, credits: Number(form.credits) })
+    const payload = { ...form, credits: Number(form.credits) }
+    if (editingCode) updateSubject(editingCode, payload)
+    else addSubject(payload)
     setModal(false)
   }
 
@@ -58,7 +74,8 @@ export default function SubjectsPage() {
                   <td>{s.doctor}</td>
                   <td style={{ fontSize: 12, color: 'var(--gray-400)' }}>{s.department}</td>
                   <td>{s.credits}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    <button className="icon-btn edit" onClick={() => handleEdit(s)} title={en.common.edit}><MdEdit size={15} /></button>
                     <button className="icon-btn del" onClick={() => setConfirm(s.code)} title={en.common.delete}><MdDelete size={15} /></button>
                   </td>
                 </tr>
@@ -71,7 +88,7 @@ export default function SubjectsPage() {
       <Modal
         isOpen={modal}
         onClose={() => setModal(false)}
-        title={en.subjects.add}
+        title={editingCode ? en.subjects.edit : en.subjects.add}
         footer={
           <>
             <button className="btn-outline-uni" onClick={() => setModal(false)}>{en.common.cancel}</button>
@@ -82,9 +99,7 @@ export default function SubjectsPage() {
         <div className="form-field"><label>{en.subjects.nameLabel}</label><input className="uni-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
         <div className="form-field"><label>{en.subjects.codeLabel}</label><input className="uni-input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} /></div>
         <div className="form-field"><label>{en.subjects.assignDoctor}</label>
-          <select className="uni-select" value={form.doctor} onChange={(e) => setForm({ ...form, doctor: e.target.value })}>
-            {doctorNames.map((n) => <option key={n}>{n}</option>)}
-          </select>
+          <input className="uni-input" value={form.doctor} onChange={(e) => setForm({ ...form, doctor: e.target.value })} />
         </div>
         <div className="form-field"><label>{en.students.modal.department}</label>
           <select className="uni-select" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}>
